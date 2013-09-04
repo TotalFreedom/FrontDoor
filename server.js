@@ -14,8 +14,9 @@ var log = function (message) {
 };
 
 var getResponse = function(req) {
+  var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
   for (var i in ips) {
-    if (ips[i] == req.connection.remoteAddress) {
+    if (ips[i] == ip) {
       return "false";
     }
   };
@@ -33,6 +34,8 @@ server.on('request', function (req, res) {
     res.end();
     return;
   }
+  
+  var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
   
   if (url.parse(req.url).pathname == '/admin') {
     res.writeHead(200, {'Content-Type': 'text/html'});
@@ -74,6 +77,7 @@ server.on('request', function (req, res) {
         if (params.ip == "64.34.165.5") {
           return redirect(res, "/admin?action=forbidden");
         }
+		
         for(var i = ips.length - 1; i >= 0; i--) {
           if(ips[i] == params.ip) {
             return redirect(res, "/admin?action=done");
@@ -94,7 +98,7 @@ server.on('request', function (req, res) {
     return;
   }
   
-  log("Connection from " + req.connection.remoteAddress);
+  log("Connection from " + ip);
   log("GET-Parameters: " + url.parse(req.url).query);
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
@@ -122,7 +126,6 @@ var main = function() {
   server.listen(config.http_port, function () {
     log("Server listening on port " + config.http_port);
   });
-
-}
+};
 
 main();
