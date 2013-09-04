@@ -56,39 +56,39 @@ server.on('request', function (req, res) {
     req.on('end', function () {
       var params = qs.parse(buffer);
       
-	  console.log(params);
-	  
+      console.log(params);
+      
       if (!params.ip || params.ip == "") {
         return redirect(res, "/admin?action=noip");
       }
-	  
-	  if (!params.pass || params.pass != config.admin_pass) {
-		return redirect(res, "/admin?action=incorrectpass");
-	  }
+      
+      if (!params.pass || params.pass != config.admin_pass) {
+        return redirect(res, "/admin?action=incorrectpass");
+      }
       
       if (!params.add && !params.remove) {
         return redirect(res, "/admin?action=invalidaction");
       }
       
       if (params.add) {
-	    if (params.ip == "64.34.165.5") {
-		  return redirect(res, "/admin?action=forbidden");
-		}
-	    for(var i = ips.length - 1; i >= 0; i--) {
-		  if(ips[i] == params.ip) {
-			return redirect(res, "/admin?action=done");
-		  }
-		}
-	    ips[ips.length] = params.ip;
+        if (params.ip == "64.34.165.5") {
+          return redirect(res, "/admin?action=forbidden");
+        }
+        for(var i = ips.length - 1; i >= 0; i--) {
+          if(ips[i] == params.ip) {
+            return redirect(res, "/admin?action=done");
+          }
+        }
+        ips[ips.length] = params.ip;
       } else {
         for(var i = ips.length - 1; i >= 0; i--) {
-		  if(ips[i] == params.ip) {
-			ips.splice(i, 1);
-		  }
-		}
+          if(ips[i] == params.ip) {
+            ips.splice(i, 1);
+          }
+        }
       }
-	  console.log(ips);
-	  
+      console.log(ips);
+      
       redirect(res, "/admin?action=done");
     });
     return;
