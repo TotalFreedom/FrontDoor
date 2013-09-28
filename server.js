@@ -7,16 +7,30 @@ var config = require('./config');
 
 // FrontDoor by JeromSar (@JeromSar)
 var server = http.createServer();
-var ips = [];
+var blockedIps = [];
+var serverIps = [];
 
 var log = function (message) {
   console.log("INFO - " + message);
 };
 
+var contains = function(a, obj) {
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] === obj) {
+      return true;
+    }
+  }
+  return false;
+};
+
 var getResponse = function(req) {
-  var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
-  for (var i in ips) {
-    if (ips[i] == ip) {
+  if (req.headers['x-forwarded-for']) { 
+    var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
+  } else {
+    var ip = req.connection.remoteAddress;
+  }
+  for (var i in blockedIps) {
+    if (blockedIps[i] == ip) {
       return "false";
     }
   };
@@ -35,7 +49,11 @@ server.on('request', function (req, res) {
     return;
   }
   
-  var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
+  if (req.headers['x-forwarded-for']) { 
+    var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
+  } else {
+    var ip = req.connection.remoteAddress;
+  }
   
   if (url.parse(req.url).pathname == '/admin') {
     res.writeHead(200, {'Content-Type': 'text/html'});
@@ -78,28 +96,30 @@ server.on('request', function (req, res) {
           return redirect(res, "/admin?action=forbidden");
         }
 		
-        for(var i = ips.length - 1; i >= 0; i--) {
-          if(ips[i] == params.ip) {
+        for(var i = blockedIps.length - 1; i >= 0; i--) {
+          if(blockedIps[i] == params.ip) {
             return redirect(res, "/admin?action=done");
           }
         }
-        ips[ips.length] = params.ip;
+        blockedIps[blockedIps.length] = params.ip;
       } else {
-        for(var i = ips.length - 1; i >= 0; i--) {
-          if(ips[i] == params.ip) {
-            ips.splice(i, 1);
+        for(var i = blockedIps.length - 1; i >= 0; i--) {
+          if(blockedIps[i] == params.ip) {
+            blockedIps.splice(i, 1);
           }
         }
       }
-      console.log(ips);
+      console.log(blockedIps);
       
       redirect(res, "/admin?action=done");
     });
     return;
   }
   
-  log("Connection from " + ip);
-  log("GET-Parameters: " + url.parse(req.url).query);
+  if (!contains(serverIps, ip)) {
+    log("Info: (v" + url.parse(req.url, true).query.version + ") " + ip + ":" + url.parse(req.url, true).query.port);
+    serverIps[serverIps.length] = ip;
+  }
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
   res.end(getResponse(req));
@@ -111,14 +131,14 @@ var getAdminHtml = function(callback) {
       callback("Oh noes! Something went wrong!");
       return;
     }
-    var formattedIps = "";
-    for (var i in ips) {
-      formattedIps += "<li>" + ips[i] + "</li>";
+    var formattedBlockedIps = "";
+    for (var i in blockedIps) {
+      formattedBlockedIps += "<li>" + blockedIps[i] + "</li>";
     }
-    if (ips == "") {
-      formattedIps = "<li>None</li>";
+    if (blockedIps == "") {
+      formattedBlockedIps = "<li>None</li>";
     }
-    callback(content.toString().replace("{ips}", formattedIps));
+    callback(content.toString().replace("{ips}", formattedBlockedIps));
   });
 }
 
