@@ -7,15 +7,14 @@
 		<h1>Admin Panel</h1>
 		<hr />
 		<h3>Currently Active</h3>
-		<ul>
 		{ips}
-		</ul>
 		
 		<form method="POST" action="update">
 			Password: <input type="password" name="pass" /><br />
 			<input type="text" name="ip" placeholder="127.0.0.1" />
 			<input type="submit" name="add" value="Add IP" />
 			<input type="submit" name="remove" value="Remove IP" />
+            <input type="submit" name="logs" value="View logs" />
 		</form>
 		
 	</body>

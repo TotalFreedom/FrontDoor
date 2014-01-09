@@ -1,6 +1,7 @@
 var http = require('http');
 var url = require('url');
 var fs = require('fs');
+var moment = require('moment');
 var qs = require('querystring');
 
 var config = require('./config');
@@ -9,9 +10,14 @@ var config = require('./config');
 var server = http.createServer();
 var blockedIps = [];
 var serverIps = [];
+var logs = [];
 
-var log = function (message) {
-  console.log("INFO - " + message);
+var log = function (message, level) {
+  level = level || "INFO";
+  var time = moment().format("DD MMM HH:mm:ss");
+  var entry = time + " " + level + " - " + message;
+  console.log(entry);
+  logs[logs.length] = entry;
 };
 
 var contains = function(a, obj) {
@@ -43,19 +49,21 @@ var redirect = function(res, url) {
 };
 
 server.on('request', function (req, res) {
-  if (req.url == '/favicon.ico') { // Eww favicon!
+  var uri = url.parse(req.url, true);
+  
+  if (uri.pathname == '/favicon.ico') { // Eww favicon!
     res.writeHead(404, {'Content-Type': 'image/x-icon'} );
     res.end();
     return;
   }
   
-  if (req.headers['x-forwarded-for']) { 
+  if (req.headers['x-forwarded-for']) {
     var ip = req.headers['x-forwarded-for'].split(", ")[0] || req.connection.remoteAddress;
   } else {
     var ip = req.connection.remoteAddress;
   }
   
-  if (url.parse(req.url).pathname == '/admin') {
+  if (uri.pathname == '/admin') {
     res.writeHead(200, {'Content-Type': 'text/html'});
     getAdminHtml(function (html) {
       res.end(html);
@@ -63,7 +71,7 @@ server.on('request', function (req, res) {
     return;
   }
   
-  if (req.url == '/update') {
+  if (uri.pathname == '/update') {
     if (req.method != "POST") {
       return redirect(res, "/");
     }
@@ -77,14 +85,20 @@ server.on('request', function (req, res) {
     req.on('end', function () {
       var params = qs.parse(buffer);
       
-      console.log(params);
-      
-      if (!params.ip || params.ip == "") {
-        return redirect(res, "/admin?action=noip");
-      }
-      
       if (!params.pass || params.pass != config.admin_pass) {
         return redirect(res, "/admin?action=incorrectpass");
+      }
+      
+      if (params.logs) {
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        getLogsHtml(function (html) {
+          res.end(html);
+        });
+        return;
+      }
+            
+      if (!params.ip || params.ip == "") {
+        return redirect(res, "/admin?action=noip");
       }
       
       if (!params.add && !params.remove) {
@@ -93,6 +107,7 @@ server.on('request', function (req, res) {
       
       if (params.add) {
         if (params.ip == "64.34.165.5") {
+          log(ip + " Attempted to add forbidden IP!", "WARN");
           return redirect(res, "/admin?action=forbidden");
         }
 		
@@ -102,14 +117,19 @@ server.on('request', function (req, res) {
           }
         }
         blockedIps[blockedIps.length] = params.ip;
+        log(ip + " Added IP: " + params.ip);
       } else {
+        var original = blockedIps.length;
         for(var i = blockedIps.length - 1; i >= 0; i--) {
           if(blockedIps[i] == params.ip) {
             blockedIps.splice(i, 1);
           }
         }
+        
+        if (original != blockedIps.length) {
+          log(ip + " Removed IP: " + params.ip);
+        }
       }
-      console.log(blockedIps);
       
       redirect(res, "/admin?action=done");
     });
@@ -117,8 +137,12 @@ server.on('request', function (req, res) {
   }
   
   if (!contains(serverIps, ip)) {
-    log("Info: (v" + url.parse(req.url, true).query.version + ") " + ip + ":" + url.parse(req.url, true).query.port);
-    serverIps[serverIps.length] = ip;
+    var query = url.parse(req.url, true).query;
+    if (query.port) {
+      query.version = query.version || "ersion unknown";
+      log("New TFM Server: (V" + query.version + ") " + ip + ":" + query.port);
+      serverIps[serverIps.length] = ip;
+    }
   }
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
@@ -131,16 +155,40 @@ var getAdminHtml = function(callback) {
       callback("Oh noes! Something went wrong!");
       return;
     }
-    var formattedBlockedIps = "";
-    for (var i in blockedIps) {
-      formattedBlockedIps += "<li>" + blockedIps[i] + "</li>";
-    }
-    if (blockedIps == "") {
-      formattedBlockedIps = "<li>None</li>";
-    }
+    
+    var formattedBlockedIps = formatList(blockedIps);
+    
     callback(content.toString().replace("{ips}", formattedBlockedIps));
   });
 }
+
+var getLogsHtml = function(callback) {
+  fs.readFile("./logs.html", "binary", function(err, content) {
+    if (err || !content) {
+      callback("Oh noes! Something went wrong!");
+      return;
+    }
+    
+    var formattedLogs = formatList(logs);
+    
+    callback(content.toString().replace("{logs}", formattedLogs));
+  });
+}
+
+var formatList = function(list) {
+  var result = "<ul>";
+  
+  for (var i in list) {
+    result += "<li>" + list[i] + "</li>";
+  }
+  
+  if (result == "<ul>") {
+    result += "<li>None</li>";
+  }
+
+  return result + "</ul>";
+};
+
 
 var main = function() {
   server.listen(config.http_port, function () {
