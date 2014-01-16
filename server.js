@@ -96,6 +96,16 @@ server.on('request', function (req, res) {
         });
         return;
       }
+      
+      if (params.clear) {
+        log("Cleared the logs");
+        serverIps = [];
+        var newLogs = [];
+        newLogs[0] = logs[0]; // Preserve port info
+        logs = newLogs;
+        
+        return redirect(res, "/admin?action=done");
+      }
             
       if (!params.ip || params.ip == "") {
         return redirect(res, "/admin?action=noip");
@@ -116,6 +126,7 @@ server.on('request', function (req, res) {
             return redirect(res, "/admin?action=done");
           }
         }
+        
         blockedIps[blockedIps.length] = params.ip;
         log(ip + " Added IP: " + params.ip);
       } else {
@@ -139,8 +150,16 @@ server.on('request', function (req, res) {
   if (!contains(serverIps, ip)) {
     var query = url.parse(req.url, true).query;
     if (query.port) {
+      
       query.version = query.version || "ersion unknown";
-      log("New TFM Server: (V" + query.version + ") " + ip + ":" + query.port);
+      
+      if (query.name) {
+        query.name = " - (" + query.name + ")";    
+      } else {
+        query.name = "";
+      }
+      
+      log("New TFM Server: (V" + query.version + ") " + ip + ":" + query.port + query.name);
       serverIps[serverIps.length] = ip;
     }
   }
