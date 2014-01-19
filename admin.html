@@ -6,11 +6,12 @@
 	<body>
 		<h1>Admin Panel</h1>
 		<hr />
+        <p>{msg}<p>
 		<h3>Currently Active</h3>
 		{ips}
 		
-		<form method="POST" action="update">
-			Password: <input type="password" name="pass" /><br />
+		<form method="POST" action="admin">
+			Password: <input type="password" name="pass" value="{pass}" /><br />
 			<input type="text" name="ip" placeholder="127.0.0.1" />
 			<input type="submit" name="add" value="Add IP" />
 			<input type="submit" name="remove" value="Remove IP" />

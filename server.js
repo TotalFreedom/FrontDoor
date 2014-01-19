@@ -64,18 +64,13 @@ server.on('request', function (req, res) {
   }
   
   if (uri.pathname == '/admin') {
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    getAdminHtml(function (html) {
-      res.end(html);
-    });
-    return;
-  }
-  
-  if (uri.pathname == '/update') {
-    if (req.method != "POST") {
-      return redirect(res, "/");
+    if (req.method != "POST") { // Plain admin page
+      html(req, res, "admin.html");
+      return;
     }
-  
+    
+    // Below this line: admin page with status update
+    
     var buffer = "";
     
     req.on('data', function (chunk) {
@@ -86,50 +81,60 @@ server.on('request', function (req, res) {
       var params = qs.parse(buffer);
       
       if (!params.pass || params.pass != config.admin_pass) {
-        return redirect(res, "/admin?action=incorrectpass");
+        params.msg = "Incorrect password";
+        return html(req, res, "admin.html", params);
       }
       
       if (params.logs) {
-        res.writeHead(200, {'Content-Type': 'text/html'});
-        getLogsHtml(function (html) {
-          res.end(html);
-        });
-        return;
+        return html(req, res, "logs.html", params);
       }
       
       if (params.clear) {
-        log("Cleared the logs");
+        log(ip + " Cleared the logs");
         serverIps = [];
         var newLogs = [];
         newLogs[0] = logs[0]; // Preserve port info
+        newLogs[1] = logs[logs.length - 1]; // Preserve log clearer
         logs = newLogs;
         
-        return redirect(res, "/admin?action=done");
+        params.msg = "Logs cleared";
+        return html(req, res, "admin.html", params);
       }
             
       if (!params.ip || params.ip == "") {
-        return redirect(res, "/admin?action=noip");
+        params.msg = "Invalid IP";
+        return html(req, res, "admin.html", params);
       }
       
       if (!params.add && !params.remove) {
-        return redirect(res, "/admin?action=invalidaction");
+        params.msg = "Invalid Action";
+        return html(req, res, "admin.html", params);
       }
+
       
       if (params.add) {
+      
         if (params.ip == "64.34.165.5") {
           log(ip + " Attempted to add forbidden IP!", "WARN");
-          return redirect(res, "/admin?action=forbidden");
+          params.msg = "Forbidden IP!";
+          return html(req, res, "admin.html", params);
         }
 		
         for(var i = blockedIps.length - 1; i >= 0; i--) {
           if(blockedIps[i] == params.ip) {
-            return redirect(res, "/admin?action=done");
+            params.msg = "IP already added";
+            return html(req, res, "admin.html", params);
           }
         }
         
         blockedIps[blockedIps.length] = params.ip;
         log(ip + " Added IP: " + params.ip);
-      } else {
+        
+        params.msg = "IP added";
+        return html(req, res, "admin.html", params);
+        
+      } else if (params.remove) {
+      
         var original = blockedIps.length;
         for(var i = blockedIps.length - 1; i >= 0; i--) {
           if(blockedIps[i] == params.ip) {
@@ -139,10 +144,13 @@ server.on('request', function (req, res) {
         
         if (original != blockedIps.length) {
           log(ip + " Removed IP: " + params.ip);
+          params.msg = "IP Removed";
+        } else {
+          params.msg = "IP not found";
         }
       }
       
-      redirect(res, "/admin?action=done");
+      html(req, res, "admin.html", params);
     });
     return;
   }
@@ -168,31 +176,38 @@ server.on('request', function (req, res) {
   res.end(getResponse(req));
 });
 
-var getAdminHtml = function(callback) {
-  fs.readFile("./admin.html", "binary", function(err, content) {
+var html = function(req, res, name, data) {
+  res.writeHead(200, {'Content-Type': 'text/html'});
+  fs.readFile("./" + name, "binary", function(err, content) {
     if (err || !content) {
-      callback("Oh noes! Something went wrong!");
+      res.end("Oh noes! Something went wrong!");
       return;
     }
     
+    data = data || {};
     var formattedBlockedIps = formatList(blockedIps);
+    var formattedLogs = formatList(logs);
+    var pass = "";
+    var msg = "<br />";
     
-    callback(content.toString().replace("{ips}", formattedBlockedIps));
-  });
-}
-
-var getLogsHtml = function(callback) {
-  fs.readFile("./logs.html", "binary", function(err, content) {
-    if (err || !content) {
-      callback("Oh noes! Something went wrong!");
-      return;
+    if (req.method == "POST" && data.pass) {
+      pass = data.pass;
     }
     
-    var formattedLogs = formatList(logs);
+    if (data.msg) {
+      msg = "<b>" + data.msg + "</b>";
+    }
     
-    callback(content.toString().replace("{logs}", formattedLogs));
+    
+    res.end(content.toString()
+      .replace("{ips}", formattedBlockedIps)
+      .replace("{logs}", formattedLogs)
+      .replace("{pass}", pass)
+      .replace("{msg}", msg)
+    );
+    
   });
-}
+};
 
 var formatList = function(list) {
   var result = "<ul>";
