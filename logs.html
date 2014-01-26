@@ -6,12 +6,15 @@
 	<body>
 		<h1>Logs</h1>
 		<hr />
+		<p>{msg}<p>
+		<h3>Server Logs</h3>
 		{logs}
 		
         <form method="POST" action="admin">
 			<input type="hidden" name="pass" value="{pass}" />
-            <input type="submit" value="Go Back" />
-		</form>
-        
+			<input type="submit" name="back" value="Back" />
+			<input type="submit" name="logs" value="Refresh" />
+			<input type="submit" name="clear" value="Clear" />
+		</form> 
 	</body>
 </html>

@@ -98,19 +98,17 @@ server.on('request', function (req, res) {
         logs = newLogs;
         
         params.msg = "Logs cleared";
+        return html(req, res, "logs.html", params);
+      }
+      
+      if (!params.add && !params.remove) {
         return html(req, res, "admin.html", params);
       }
-            
+      
       if (!params.ip || params.ip == "") {
         params.msg = "Invalid IP";
         return html(req, res, "admin.html", params);
       }
-      
-      if (!params.add && !params.remove) {
-        params.msg = "Invalid Action";
-        return html(req, res, "admin.html", params);
-      }
-
       
       if (params.add) {
       
