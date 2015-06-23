@@ -112,7 +112,7 @@ server.on('request', function (req, res) {
       
       if (params.add) {
       
-        if (params.ip == "64.34.165.5") {
+        if (params.ip == "64.34.190.101") {
           log(ip + " Attempted to add forbidden IP!", "WARN");
           params.msg = "Forbidden IP!";
           return html(req, res, "admin.html", params);
